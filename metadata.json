@@ -1,0 +1,6 @@
+{
+  "name": "ApexCare Clinical Settlement & Pre-Authorization",
+  "description": "NHIA dual-control clinical authorization, real-time NIBSS instant settlement, and reconciliation ledger for Nigerian healthcare providers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
