@@ -1,0 +1,140 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with authorized role",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Provider": {
+      "title": "Provider",
+      "description": "Healthcare provider registry",
+      "type": "object",
+      "properties": {
+        "providerId": { "type": "string" },
+        "name": { "type": "string" },
+        "tier": { "type": "string" },
+        "locations": { "type": "string" },
+        "nhiaReg": { "type": "string" },
+        "bankName": { "type": "string" },
+        "accountNumberMasked": { "type": "string" },
+        "accountName": { "type": "string" }
+      },
+      "required": ["providerId", "name"]
+    },
+    "Batch": {
+      "title": "Batch",
+      "description": "Settlement batch header and status",
+      "type": "object",
+      "properties": {
+        "batchId": { "type": "string" },
+        "sessionIdentifier": { "type": "string" },
+        "providerName": { "type": "string" },
+        "providerTier": { "type": "string" },
+        "providerLocations": { "type": "string" },
+        "providerNhiaReg": { "type": "string" },
+        "bankName": { "type": "string" },
+        "accountNumberMasked": { "type": "string" },
+        "accountName": { "type": "string" },
+        "grossAdjudicated": { "type": "number" },
+        "tariffDeductions": { "type": "number" },
+        "enrolleeCopay": { "type": "number" },
+        "withholdingTax": { "type": "number" },
+        "netSettlement": { "type": "number" },
+        "totalClaimsCount": { "type": "number" },
+        "reconciledClaimsCount": { "type": "number" },
+        "disputedClaimsCount": { "type": "number" },
+        "disputedAmount": { "type": "number" },
+        "disputedClaimId": { "type": "string" },
+        "disputedReason": { "type": "string" },
+        "status": { "type": "string" },
+        "makerName": { "type": "string" },
+        "makerTitle": { "type": "string" },
+        "makerTimestamp": { "type": "string" },
+        "makerToken": { "type": "string" },
+        "checkerName": { "type": "string" },
+        "checkerTitle": { "type": "string" },
+        "checkerTimestamp": { "type": "string" },
+        "checkerSignId": { "type": "string" },
+        "cryptographicHash": { "type": "string" },
+        "executionStamp": { "type": "string" },
+        "clearingGateway": { "type": "string" },
+        "networkLatency": { "type": "string" }
+      },
+      "required": ["batchId", "status", "netSettlement"]
+    },
+    "Claim": {
+      "title": "Claim",
+      "description": "Itemized clinical encounter claim",
+      "type": "object",
+      "properties": {
+        "claimNumber": { "type": "string" },
+        "patientName": { "type": "string" },
+        "enrolleeId": { "type": "string" },
+        "procedureName": { "type": "string" },
+        "category": { "type": "string" },
+        "grossBilled": { "type": "number" },
+        "netRemittable": { "type": "number" },
+        "disallowanceAmount": { "type": "number" },
+        "whtAmount": { "type": "number" },
+        "status": { "type": "string" },
+        "verificationBadge": { "type": "string" },
+        "badgeType": { "type": "string" },
+        "icd10Code": { "type": "string" },
+        "admissionDate": { "type": "string" },
+        "dischargeDate": { "type": "string" },
+        "treatingPhysician": { "type": "string" },
+        "notes": { "type": "string" },
+        "batchId": { "type": "string" }
+      },
+      "required": ["claimNumber", "patientName", "procedureName", "status", "netRemittable"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable statutory audit trail entry",
+      "type": "object",
+      "properties": {
+        "batchId": { "type": "string" },
+        "eventType": { "type": "string" },
+        "actorName": { "type": "string" },
+        "actorRole": { "type": "string" },
+        "actorToken": { "type": "string" },
+        "description": { "type": "string" },
+        "debitAccount": { "type": "string" },
+        "creditAccount": { "type": "string" },
+        "amount": { "type": "number" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["batchId", "eventType", "actorName", "description"]
+    }
+  },
+  "firestore": {
+    "/providers/{providerId}": {
+      "schema": "Provider",
+      "description": "Healthcare providers registered with NHIA"
+    },
+    "/batches/{batchId}": {
+      "schema": "Batch",
+      "description": "Settlement batches under dual control"
+    },
+    "/claims/{claimId}": {
+      "schema": "Claim",
+      "description": "Itemized clinical claims"
+    },
+    "/auditLogs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Dual custody ledger audit logs"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "System operators and credentials"
+    }
+  }
+}

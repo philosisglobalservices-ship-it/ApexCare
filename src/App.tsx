@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BATCH_DATA, CLAIMS_LIST } from './data/mockData';
-import { ClaimItem } from './types';
+import { BatchMetadata, ClaimItem } from './types';
 import { Header } from './components/Header';
 import { ScreenOnePreAuth } from './components/ScreenOnePreAuth';
 import { ScreenTwoCompleted } from './components/ScreenTwoCompleted';
@@ -10,9 +10,12 @@ import { RemittanceSlipModal } from './components/RemittanceSlipModal';
 import { ClaimDetailModal } from './components/ClaimDetailModal';
 import { FlagAuditModal } from './components/FlagAuditModal';
 import { Toast } from './components/Toast';
+import { fetchBatchFromDb, fetchClaimsFromDb, authorizeBatchInDb, flagBatchInDb } from './services/api';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<'screen1' | 'screen2' | 'audit'>('screen1');
+  const [batchData, setBatchData] = useState<BatchMetadata>(BATCH_DATA);
+  const [claimsList, setClaimsList] = useState<ClaimItem[]>(CLAIMS_LIST);
   const [isAuthorizing, setIsAuthorizing] = useState<boolean>(false);
   const [selectedClaim, setSelectedClaim] = useState<ClaimItem | null>(null);
   const [showBiometricModal, setShowBiometricModal] = useState<boolean>(false);
@@ -20,6 +23,23 @@ export default function App() {
   const [showFlagModal, setShowFlagModal] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [deviceFrameMode, setDeviceFrameMode] = useState<boolean>(true);
+
+  // Load from database on mount
+  useEffect(() => {
+    async function loadDbData() {
+      try {
+        const [loadedBatch, loadedClaims] = await Promise.all([
+          fetchBatchFromDb(),
+          fetchClaimsFromDb(),
+        ]);
+        setBatchData(loadedBatch);
+        setClaimsList(loadedClaims);
+      } catch (err) {
+        console.warn('Error loading initial data from database:', err);
+      }
+    }
+    loadDbData();
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -33,10 +53,25 @@ export default function App() {
     setShowBiometricModal(true);
   };
 
-  const handleBiometricSuccess = () => {
+  const handleBiometricSuccess = async () => {
     setShowBiometricModal(false);
     setIsAuthorizing(true);
     showToast('Batch Authorized & Queued for NIBSS NIP');
+
+    // Persist authorization update into Cloud SQL
+    try {
+      await authorizeBatchInDb(batchData.batchId);
+      const now = new Date();
+      const timestampStr = `${now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} • ${now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} WAT`;
+      setBatchData((prev) => ({
+        ...prev,
+        checkerTimestamp: timestampStr,
+        executionStamp: timestampStr,
+      }));
+    } catch (err) {
+      console.error('Failed to persist authorization to Cloud SQL:', err);
+    }
+
     setTimeout(() => {
       setIsAuthorizing(false);
       setCurrentScreen('screen2');
@@ -44,9 +79,17 @@ export default function App() {
     }, 800);
   };
 
-  const handleFlagSubmit = (reason: string, notes: string) => {
+  const handleFlagSubmit = async (reason: string, notes: string) => {
     setShowFlagModal(false);
     showToast(`Batch flagged: ${reason.replace('_', ' ').toUpperCase()}. Returned to Claims Audit.`);
+
+    // Persist flag to Cloud SQL
+    try {
+      await flagBatchInDb(batchData.batchId, reason, notes);
+    } catch (err) {
+      console.error('Failed to persist flag to Cloud SQL:', err);
+    }
+
     // Automatically transition to Audit Summary to review the exception
     setTimeout(() => {
       setCurrentScreen('audit');
@@ -82,7 +125,7 @@ export default function App() {
         <div className="flex items-center gap-2">
           <span className="inline-block w-2 h-2 rounded-full bg-[#aaf0dc]"></span>
           <span className="font-semibold text-slate-200">ApexCare Clinical Enterprise</span>
-          <span className="text-slate-400 hidden sm:inline">• NHIA Dual-Control System</span>
+          <span className="text-slate-400 hidden sm:inline">• Cloud SQL Connected 🗄️</span>
         </div>
 
         {/* 3-Screen Segmented Navigation Tabs */}
@@ -163,8 +206,8 @@ export default function App() {
         <main className="flex-1 flex flex-col relative w-full pt-16 bg-[#faf8ff]">
           {currentScreen === 'screen1' && (
             <ScreenOnePreAuth
-              batch={BATCH_DATA}
-              claims={CLAIMS_LIST}
+              batch={batchData}
+              claims={claimsList}
               onAuthorize={handleAuthorizeClick}
               onOpenClaim={(claim) => setSelectedClaim(claim)}
               onOpenRemittance={() => setShowRemittanceModal(true)}
@@ -177,7 +220,7 @@ export default function App() {
 
           {currentScreen === 'screen2' && (
             <ScreenTwoCompleted
-              batch={BATCH_DATA}
+              batch={batchData}
               onBackToLedger={() => setCurrentScreen('screen1')}
               onOpenRemittance={() => setShowRemittanceModal(true)}
               onShowToast={showToast}
@@ -187,8 +230,8 @@ export default function App() {
 
           {currentScreen === 'audit' && (
             <ScreenAuditSummary
-              batch={BATCH_DATA}
-              claims={CLAIMS_LIST}
+              batch={batchData}
+              claims={claimsList}
               onBackToLedger={() => setCurrentScreen('screen1')}
               onOpenClaim={(claim) => setSelectedClaim(claim)}
               onOpenRemittance={() => setShowRemittanceModal(true)}
@@ -200,15 +243,15 @@ export default function App() {
 
       {/* Modals & Dialogs */}
       <BiometricAuthModal
-        batch={BATCH_DATA}
+        batch={batchData}
         isOpen={showBiometricModal}
         onClose={() => setShowBiometricModal(false)}
         onSuccess={handleBiometricSuccess}
       />
 
       <RemittanceSlipModal
-        batch={BATCH_DATA}
-        claims={CLAIMS_LIST}
+        batch={batchData}
+        claims={claimsList}
         isOpen={showRemittanceModal}
         onClose={() => setShowRemittanceModal(false)}
         onShowToast={showToast}
@@ -222,7 +265,7 @@ export default function App() {
       />
 
       <FlagAuditModal
-        batch={BATCH_DATA}
+        batch={batchData}
         isOpen={showFlagModal}
         onClose={() => setShowFlagModal(false)}
         onSubmit={handleFlagSubmit}
